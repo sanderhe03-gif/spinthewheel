@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spin the Wheel — Outdoor Activities</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    color: #fff;
+  }
+  .app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 2.2rem;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 10px rgba(0,0,0,.4);
+  }
+  p.subtitle {
+    margin: 0 0 24px;
+    opacity: 0.85;
+    text-align: center;
+    max-width: 640px;
+  }
+  .wheel-wrapper {
+    position: relative;
+    width: min(92vw, 560px);
+    aspect-ratio: 1 / 1;
+    margin-bottom: 24px;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 0 0 8px rgba(255,255,255,.08);
+    background: #111;
+    display: block;
+  }
+  .pointer {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 22px solid transparent;
+    border-right: 22px solid transparent;
+    border-top: 36px solid #ff3b30;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.5));
+    z-index: 3;
+  }
+  .hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #fff, #c7c7c7 60%, #8a8a8a);
+    box-shadow: 0 4px 10px rgba(0,0,0,.4), inset 0 -4px 8px rgba(0,0,0,.2);
+    z-index: 2;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  button {
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ff9966, #ff5e62);
+    color: #fff;
+    letter-spacing: 0.5px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    box-shadow: 0 8px 24px rgba(255,94,98,.35);
+  }
+  button:hover:not(:disabled) { transform: translateY(-1px); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.secondary {
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    box-shadow: none;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .remaining {
+    margin-top: 8px;
+    max-width: 640px;
+    width: 100%;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 16px;
+    padding: 16px 20px;
+  }
+  .remaining h3 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    opacity: 0.85;
+  }
+  .remaining ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 4px;
+    font-size: 0.95rem;
+  }
+  .remaining li.done {
+    text-decoration: line-through;
+    opacity: 0.45;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 16px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: #1c2b3a;
+    border-radius: 20px;
+    max-width: 460px;
+    width: 100%;
+    padding: 28px;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    border: 1px solid rgba(255,255,255,.1);
+    animation: pop 0.35s cubic-bezier(.2,1.2,.4,1);
+  }
+  @keyframes pop {
+    from { transform: scale(0.85); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .modal h2 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    opacity: 0.8;
+    font-weight: 500;
+  }
+  .modal .result {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 8px 0 20px;
+    color: #ffd166;
+  }
+  .modal .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .modal .actions a,
+  .modal .actions button {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .modal .actions a.primary {
+    background: linear-gradient(135deg, #43cea2, #185a9d);
+    color: #fff;
+  }
+  .modal .actions a.cal {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+  }
+  .status-line {
+    margin-top: 12px;
+    font-size: 0.9rem;
+    opacity: 0.75;
+    min-height: 1.2em;
+  }
+  footer {
+    margin-top: 24px;
+    font-size: 0.8rem;
+    opacity: 0.55;
+    text-align: center;
+    max-width: 640px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎡 Spin the Wheel</h1>
+  <p class="subtitle">Pick a random outdoor activity. When the arrow lands, the activity is emailed to you and added to your calendar, then removed from the wheel.</p>
+
+  <div class="wheel-wrapper">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="700" height="700"></canvas>
+    <div class="hub"></div>
+  </div>
+
+  <div class="controls">
+    <button id="spinBtn">Spin the Wheel</button>
+    <button id="resetBtn" class="secondary">Reset</button>
+  </div>
+
+  <div class="remaining">
+    <h3>Activities</h3>
+    <ul id="remainingList"></ul>
+  </div>
+
+  <footer>
+    Emails open in your default mail app addressed to sander.berg.heia@icloud.com.
+    Calendar events download as an .ics file that you can open in Apple Calendar, Google Calendar, or Outlook.
+  </footer>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h2>🎉 The wheel stopped on…</h2>
+    <div class="result" id="resultText">—</div>
+    <div class="actions">
+      <a id="emailLink" class="primary" href="#">📧 Send email to sander.berg.heia@icloud.com</a>
+      <a id="calLink" class="cal" href="#" download="activity.ics">📅 Add to Calendar (.ics)</a>
+      <button id="closeModal" class="secondary">Close & continue</button>
+    </div>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+</div>
+
+<script>
+  const ALL_ACTIVITIES = [
+    "Hiking in Nordmarka",
+    "Trail running in forest trails",
+    "Kayaking in the Oslofjord",
+    "Stand-up paddleboarding (SUP)",
+    "Open-water swimming at Sørenga",
+    "Outdoor strength training (calisthenics parks)",
+    "Orienteering (navigation + running)",
+    "Beach volleyball (summer)",
+    "Fishing (fjord or freshwater lakes)",
+    "Outdoor yoga / mobility sessions"
+  ];
+
+  const EMAIL_TO = "sander.berg.heia@icloud.com";
+
+  const COLORS = [
+    "#ff6b6b", "#f7b267", "#f4d35e", "#a8dadc", "#457b9d",
+    "#2a9d8f", "#e76f51", "#b5838d", "#6d597a", "#80ed99"
+  ];
+
+  const canvas = document.getElementById("wheel");
+  const ctx = canvas.getContext("2d");
+  const spinBtn = document.getElementById("spinBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const modal = document.getElementById("modal");
+  const resultText = document.getElementById("resultText");
+  const emailLink = document.getElementById("emailLink");
+  const calLink = document.getElementById("calLink");
+  const closeModal = document.getElementById("closeModal");
+  const remainingList = document.getElementById("remainingList");
+  const statusLine = document.getElementById("statusLine");
+
+  let activities = [...ALL_ACTIVITIES];
+  let currentRotation = 0; // in radians
+  let spinning = false;
+
+  function drawWheel() {
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const radius = Math.min(W, H) / 2 - 8;
+    ctx.clearRect(0, 0, W, H);
+
+    if (activities.length === 0) {
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "bold 28px sans-serif";
+      ctx.fillText("All done! 🎉", cx, cy);
+      return;
+    }
+
+    const sliceAngle = (Math.PI * 2) / activities.length;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(currentRotation);
+
+    for (let i = 0; i < activities.length; i++) {
+      const startAngle = i * sliceAngle;
+      const endAngle = startAngle + sliceAngle;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.stroke();
+
+      // Text
+      ctx.save();
+      ctx.rotate(startAngle + sliceAngle / 2);
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#1a1a1a";
+      const fontSize = activities.length > 8 ? 16 : 18;
+      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`;
+      const label = activities[i];
+      const maxWidth = radius - 40;
+      wrapText(ctx, label, radius - 20, 0, maxWidth, fontSize + 2);
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.stroke();
+  }
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+
+    const totalH = lines.length * lineHeight;
+    let startY = y - totalH / 2 + lineHeight / 2;
+    for (const l of lines) {
+      ctx.fillText(l, x, startY);
+      startY += lineHeight;
+    }
+  }
+
+  function renderRemaining() {
+    remainingList.innerHTML = "";
+    for (const name of ALL_ACTIVITIES) {
+      const li = document.createElement("li");
+      li.textContent = name;
+      if (!activities.includes(name)) li.classList.add("done");
+      remainingList.appendChild(li);
+    }
+  }
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function spin() {
+    if (spinning) return;
+    if (activities.length === 0) return;
+
+    spinning = true;
+    spinBtn.disabled = true;
+
+    const sliceAngle = (Math.PI * 2) / activities.length;
+    const targetIndex = Math.floor(Math.random() * activities.length);
+
+    // Pointer is at the TOP of the wheel (angle = -PI/2 in standard canvas coords).
+    // We want the center of the target slice to land under the pointer.
+    // Slice i center (at rotation=0) is at angle: i * sliceAngle + sliceAngle/2.
+    // After rotation r, the slice center is at: (i * sliceAngle + sliceAngle/2) + r.
+    // We want this to equal -PI/2 (mod 2PI).
+    const sliceCenter = targetIndex * sliceAngle + sliceAngle / 2;
+    const pointerAngle = -Math.PI / 2;
+    let baseTarget = pointerAngle - sliceCenter;
+    // Add full rotations for drama
+    const extraSpins = 6 + Math.floor(Math.random() * 3);
+    const finalTarget = baseTarget + extraSpins * Math.PI * 2;
+
+    // Normalize so we spin forward from currentRotation
+    const start = currentRotation;
+    // Ensure finalTarget > start
+    let delta = finalTarget - (start % (Math.PI * 2));
+    while (delta < extraSpins * Math.PI * 2) delta += Math.PI * 2;
+    const end = start + delta;
+
+    const duration = 5200;
+    const startTime = performance.now();
+
+    function frame(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = easeOutCubic(t);
+      currentRotation = start + (end - start) * eased;
+      drawWheel();
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        spinning = false;
+        const winner = activities[targetIndex];
+        onSpinComplete(winner, targetIndex);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function onSpinComplete(activity, index) {
+    resultText.textContent = activity;
+
+    // Build mailto
+    const subject = encodeURIComponent(`Today's pick: ${activity}`);
+    const body = encodeURIComponent(
+      `The wheel picked: ${activity}\n\n` +
+      `Date: ${new Date().toLocaleString()}\n\n` +
+      `Have fun out there! 🏞️`
+    );
+    emailLink.href = `mailto:${EMAIL_TO}?subject=${subject}&body=${body}`;
+
+    // Build .ics file
+    const ics = buildICS(activity);
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    calLink.href = url;
+    calLink.download = `${activity.replace(/[^a-z0-9]+/gi, "_")}.ics`;
+
+    statusLine.textContent = "";
+
+    modal.classList.add("show");
+
+    // Remove activity and redraw
+    activities.splice(index, 1);
+    renderRemaining();
+
+    // Auto-trigger the email and calendar
+    // Clicking the links is required for mailto:/downloads — we let user click
+    // but also offer one-click via the big buttons.
+  }
+
+  function buildICS(activity) {
+    // Schedule for tomorrow 09:00–11:00 local time
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() + 1);
+    start.setHours(9, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(11, 0, 0, 0);
+
+    const fmt = (d) => {
+      const pad = (n) => String(n).padStart(2, "0");
+      return (
+        d.getUTCFullYear().toString() +
+        pad(d.getUTCMonth() + 1) +
+        pad(d.getUTCDate()) + "T" +
+        pad(d.getUTCHours()) +
+        pad(d.getUTCMinutes()) +
+        pad(d.getUTCSeconds()) + "Z"
+      );
+    };
+
+    const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}@spin-the-wheel`;
+
+    return [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Spin the Wheel//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${fmt(new Date())}`,
+      `DTSTART:${fmt(start)}`,
+      `DTEND:${fmt(end)}`,
+      `SUMMARY:${escapeICS(activity)}`,
+      `DESCRIPTION:${escapeICS("Randomly picked by Spin the Wheel 🎡")}`,
+      `ORGANIZER;CN=Spin the Wheel:mailto:${EMAIL_TO}`,
+      `ATTENDEE;CN=Sander;RSVP=TRUE:mailto:${EMAIL_TO}`,
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n");
+  }
+
+  function escapeICS(s) {
+    return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  }
+
+  function reset() {
+    activities = [...ALL_ACTIVITIES];
+    currentRotation = 0;
+    spinBtn.disabled = false;
+    drawWheel();
+    renderRemaining();
+  }
+
+  spinBtn.addEventListener("click", spin);
+  resetBtn.addEventListener("click", reset);
+  closeModal.addEventListener("click", () => {
+    modal.classList.remove("show");
+    if (activities.length === 0) {
+      spinBtn.disabled = true;
+      drawWheel();
+    }
+  });
+
+  // Close modal if clicking backdrop
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      modal.classList.remove("show");
+      if (activities.length === 0) {
+        spinBtn.disabled = true;
+        drawWheel();
+      }
+    }
+  });
+
+  // Init
+  drawWheel();
+  renderRemaining();
+</script>
+</body>
+</html>
